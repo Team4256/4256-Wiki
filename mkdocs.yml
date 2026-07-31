@@ -1,0 +1,34 @@
+site_name: Cyborg Cats Wiki
+site_description: Team 4256 Cyborg Cats knowledge base
+repo_url: https://github.com/Team4256/4256-Wiki
+repo_name: Team4256/4256-Wiki
+
+theme:
+  name: material
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - navigation.tabs
+    - navigation.top
+    - search.suggest
+    - content.code.copy
+
+markdown_extensions:
+  - attr_list
+  - md_in_html
+  - tables
+  - fenced_code
+
+nav:
+  - Home: index.md
+  - Java Course: java-course.md
+  - Coordinate Systems and Tooling Basics: coordinate-systems-and-tooling-basics.md
