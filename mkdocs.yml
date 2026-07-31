@@ -44,5 +44,4 @@ nav:
       - Overview: electrical/index.md
       - Wiring Basics: electrical/wiring-basics.md
       - Electrical Panel: electrical/electrical-panel.md
-      - Pneumatics: electrical/pneumatics.md
   - Releases & Writeups: releases/index.md
