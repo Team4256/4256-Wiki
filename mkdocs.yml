@@ -30,5 +30,19 @@ markdown_extensions:
 
 nav:
   - Home: index.md
-  - Java Course: java-course.md
-  - Coordinate Systems and Tooling Basics: coordinate-systems-and-tooling-basics.md
+  - Mechanical:
+      - Overview: mechanical/index.md
+      - Coordinate Systems and Tooling Basics: mechanical/coordinate-systems-and-tooling-basics.md
+      - CAD/CAM: mechanical/cad-cam.md
+      - Fabrication: mechanical/fabrication.md
+  - Programming:
+      - Overview: programming/index.md
+      - Java Course: programming/java-course.md
+      - Robot Code: programming/robot-code.md
+      - Vision and Sensors: programming/vision-and-sensors.md
+  - Electrical:
+      - Overview: electrical/index.md
+      - Wiring Basics: electrical/wiring-basics.md
+      - Electrical Panel: electrical/electrical-panel.md
+      - Pneumatics: electrical/pneumatics.md
+  - Releases & Writeups: releases/index.md

@@ -2,7 +2,7 @@
 ### How to use
 this is a collection of articles selected to help students learn java 
 the goal of this course is to teach students all the necessary java related skills to be able to write and read subsystems 
-robot code specific information can be found [here]()
+robot code specific information can be found [here](robot-code.md)
 
 ### Articles
 - [What is java](https://www.geeksforgeeks.org/java/introduction-to-java/)
