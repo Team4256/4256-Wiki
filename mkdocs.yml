@@ -4,29 +4,22 @@ repo_url: https://github.com/Team4256/4256-Wiki
 repo_name: Team4256/4256-Wiki
 
 theme:
-  name: material
-  palette:
-    - media: "(prefers-color-scheme: light)"
-      scheme: default
-      toggle:
-        icon: material/brightness-7
-        name: Switch to dark mode
-    - media: "(prefers-color-scheme: dark)"
-      scheme: slate
-      toggle:
-        icon: material/brightness-4
-        name: Switch to light mode
-  features:
-    - navigation.tabs
-    - navigation.top
-    - search.suggest
-    - content.code.copy
+  name: darkly
 
 markdown_extensions:
   - attr_list
   - md_in_html
   - tables
   - fenced_code
+  - pymdownx.arithmatex:
+      generic: true
+
+extra_css:
+  - stylesheets/extra.css
+
+extra_javascript:
+  - javascripts/mathjax.js
+  - https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js
 
 nav:
   - Home: index.md
@@ -44,4 +37,6 @@ nav:
       - Overview: electrical/index.md
       - Wiring Basics: electrical/wiring-basics.md
       - Electrical Panel: electrical/electrical-panel.md
-  - Releases & Writeups: releases/index.md
+  - Releases & Writeups:
+      - Overview: releases/index.md
+      - Iterative Chinese Remainder Theorem for Absolute Turret Positioning: releases/crt.md

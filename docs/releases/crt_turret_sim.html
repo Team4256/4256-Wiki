@@ -1,0 +1,615 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CRT Turret Position Solver</title>
+<style>
+  :root {
+    --bg: #14161c;
+    --panel: #1b1e26;
+    --panel-2: #20242e;
+    --border: #333846;
+    --text: #e6e6e6;
+    --muted: #9aa1b2;
+    --accent: #4fa8ff;
+    --accent-2: #ffdd55;
+    --warn: #ff5555;
+    --ok: #3ad57e;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    height: 100%;
+  }
+  #app {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    padding: 12px;
+    min-height: 100vh;
+  }
+  #canvasWrap {
+    flex: 1 1 560px;
+    min-width: 320px;
+    background: #0e1015;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    position: relative;
+    min-height: 480px;
+  }
+  canvas { width: 100%; height: 100%; display: block; border-radius: 10px; }
+  #side {
+    flex: 1 1 380px;
+    min-width: 320px;
+    max-width: 460px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .box {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 10px 12px;
+  }
+  .box h3 {
+    margin: 0 0 8px 0;
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    color: var(--muted);
+    font-weight: 600;
+  }
+  .row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 6px 0;
+  }
+  .row label {
+    flex: 0 0 auto;
+    font-size: 12.5px;
+    color: var(--text);
+    min-width: 150px;
+  }
+  .row input[type="range"] { flex: 1 1 auto; accent-color: var(--accent); }
+  .row .val {
+    flex: 0 0 auto;
+    width: 62px;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-weight: 700;
+    color: var(--accent);
+    font-size: 12.5px;
+  }
+  input[type="text"], input[type="number"] {
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-radius: 6px;
+    padding: 5px 7px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 12.5px;
+    width: 100%;
+  }
+  button {
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-radius: 6px;
+    padding: 6px 10px;
+    font-size: 12.5px;
+    cursor: pointer;
+  }
+  button:hover { border-color: var(--accent); color: var(--accent); }
+  button.primary { border-color: var(--accent); color: var(--accent); }
+  .teeth-grid {
+    display: grid;
+    grid-template-columns: 1fr 70px;
+    gap: 6px 8px;
+    align-items: center;
+    font-size: 12.5px;
+  }
+  .radio-row { display: flex; align-items: center; gap: 6px; font-size: 12.5px; margin: 4px 0; }
+  .radio-row input { accent-color: var(--accent); }
+  .warn { color: var(--warn); font-size: 12px; margin-top: 4px; min-height: 14px; }
+  #readout {
+    background: #0e1015;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 12px;
+    line-height: 1.55;
+    white-space: pre-wrap;
+    max-height: 340px;
+    overflow-y: auto;
+  }
+  .btn-line { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 6px; }
+  .entry-line { display: flex; gap: 6px; align-items: center; }
+  .entry-line label { font-size: 12.5px; min-width: 110px; }
+  a.credit { color: var(--muted); font-size: 11px; }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="canvasWrap"><canvas id="canvas"></canvas></div>
+
+  <div id="side">
+    <div class="box">
+      <h3>Turret ground truth</h3>
+      <div class="row">
+        <label>True angle (deg)</label>
+        <input type="range" id="angleSlider" min="-700" max="700" step="0.1" value="0">
+        <span class="val" id="angleVal">0.00</span>
+      </div>
+      <div class="entry-line">
+        <label>Type exact angle:</label>
+        <input type="text" id="angleEntry" value="0.0" style="width:90px">
+        <button id="angleSetBtn">Set</button>
+      </div>
+      <div class="btn-line">
+        <button id="animateBtn">Animate sweep</button>
+        <button id="resetAngleBtn">Reset to 0</button>
+      </div>
+    </div>
+
+    <div class="box">
+      <h3>Tooth counts / gearing</h3>
+      <div class="teeth-grid">
+        <label>Encoder 1 pinion teeth (t1)</label><input type="text" id="t1Var" value="17">
+        <label>Encoder 2 pinion teeth (t2)</label><input type="text" id="t2Var" value="19">
+        <label>Turret gear teeth (T)</label><input type="text" id="TVar" value="90">
+      </div>
+      <div class="btn-line"><button id="applyTeethBtn" class="primary">Apply tooth counts</button></div>
+      <div class="warn" id="teethWarning"></div>
+    </div>
+
+    <div class="box">
+      <h3>Sensor imperfections</h3>
+      <div class="row">
+        <label>Noise (% of enc. rotation)</label>
+        <input type="range" id="noiseSlider" min="0" max="3" step="0.01" value="0">
+        <span class="val" id="noiseVal">0.00</span>
+      </div>
+      <div class="row">
+        <label>Encoder 1 bias/backlash (deg)</label>
+        <input type="range" id="biasASlider" min="-5" max="5" step="0.05" value="0">
+        <span class="val" id="biasAVal">0.00</span>
+      </div>
+      <div class="row">
+        <label>Encoder 2 bias/backlash (deg)</label>
+        <input type="range" id="biasBSlider" min="-5" max="5" step="0.05" value="0">
+        <span class="val" id="biasBVal">0.00</span>
+      </div>
+      <div class="row" style="margin-top:2px">
+        <input type="checkbox" id="liveNoiseChk" checked style="accent-color:var(--accent)">
+        <label style="min-width:0">Resample noise live (uncheck to freeze)</label>
+      </div>
+      <div class="btn-line">
+        <button id="zeroABtn">Zero encoder 1</button>
+        <button id="zeroBBtn">Zero encoder 2</button>
+        <button id="clearZeroBtn">Clear zero offsets</button>
+      </div>
+    </div>
+
+    <div class="box">
+      <h3>Solver</h3>
+      <label class="radio-row"><input type="radio" name="mode" value="buggy" checked> Buggy sieve (linear diff, season bug)</label>
+      <label class="radio-row"><input type="radio" name="mode" value="circular"> Fixed sieve (circular diff)</label>
+      <div class="row" style="margin-top:6px">
+        <label>Tolerance (deg)</label>
+        <input type="range" id="tolSlider" min="0" max="4" step="0.01" value="0.5">
+        <span class="val" id="tolVal">0.50</span>
+      </div>
+    </div>
+
+    <div class="box">
+      <h3>Readout</h3>
+      <div id="readout"></div>
+    </div>
+    <a class="credit" href="#" onclick="return false">CRT Turret Position Solver &mdash; vanilla JS, no dependencies</a>
+  </div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  // ---------- math helpers ----------
+  function mod(x, m) { return ((x % m) + m) % m; }
+  function mod1(x) { return mod(x, 1); }
+
+  function gaussian(std) {
+    if (std <= 0) return 0;
+    let u = 0, v = 0;
+    while (u === 0) u = Math.random();
+    while (v === 0) v = Math.random();
+    return std * Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+  }
+
+  // ---------- model ----------
+  class CRTModel {
+    constructor() {
+      this.t1 = 17;
+      this.t2 = 19;
+      this.T = 90;
+      this.offsetA = 0;
+      this.offsetB = 0;
+      this.biasA = 0;
+      this.biasB = 0;
+      this.noiseStd = 0;
+      this.liveNoise = true;
+      this.tolerance = 0.5;
+      this.mode = "buggy";
+      this.lastA = 0;
+      this.lastB = 0;
+      this.rawA = 0;
+      this.rawB = 0;
+      this.recomputeDerived();
+    }
+
+    recomputeDerived() {
+      this.m1 = 360 * (this.t1 / this.T);
+      this.m2 = 360 * (this.t2 / this.T);
+      const gt = gcd(Math.round(this.t1), Math.round(this.t2));
+      this.gTooth = gt;
+      this.coprime = gt === 1;
+      this.period = this.coprime ? (360 * this.t1 * this.t2 / this.T) : null;
+      this.maxTolerance = 180 / this.T;
+    }
+
+    sampleEncoders(trueAngle) {
+      const idealA = mod1((trueAngle + this.biasA) / this.m1);
+      const idealB = mod1((trueAngle + this.biasB) / this.m2);
+      let noisyA, noisyB;
+      if (this.liveNoise) {
+        noisyA = mod1(idealA + gaussian(this.noiseStd));
+        noisyB = mod1(idealB + gaussian(this.noiseStd));
+      } else {
+        noisyA = idealA;
+        noisyB = idealB;
+      }
+      this.rawA = noisyA;
+      this.rawB = noisyB;
+      this.lastA = mod1(noisyA - this.offsetA);
+      this.lastB = mod1(noisyB - this.offsetB);
+      return [this.lastA, this.lastB];
+    }
+
+    zeroA() { this.offsetA = this.rawA; }
+    zeroB() { this.offsetB = this.rawB; }
+    unzero() { this.offsetA = 0; this.offsetB = 0; }
+
+    solve(a, b) {
+      return this.solveSieve(a, b, this.mode === "circular");
+    }
+
+    solveSieve(a, b, circular) {
+      const m1 = this.m1, m2 = this.m2;
+      const r1 = a * m1, r2 = b * m2;
+      const t2 = Math.round(this.t2);
+      const period = this.period;
+      for (let i = 0; i < t2; i++) {
+        let angle = r1 + i * m1;
+        let d = Math.abs(mod(angle, m2) - r2);
+        if (circular) d = Math.min(d, m2 - d);
+        if (d < this.tolerance) {
+          if (period !== null && angle >= period / 2) angle -= period;
+          return [angle, i + 1];
+        }
+      }
+      return [NaN, t2];
+    }
+
+    wrapTrue(trueAngle) {
+      if (this.period === null) return trueAngle;
+      let w = mod(trueAngle, this.period);
+      if (w >= this.period / 2) w -= this.period;
+      return w;
+    }
+  }
+
+  function gcd(a, b) { a = Math.abs(a); b = Math.abs(b); while (b) { [a, b] = [b, a % b]; } return a; }
+
+  // ---------- app ----------
+  const model = new CRTModel();
+  let trueAngle = 0;
+  let animating = false;
+  let animHandle = null;
+  let lastA = 0, lastB = 0, lastSolved = NaN;
+
+  const $ = (id) => document.getElementById(id);
+  const canvas = $("canvas");
+  const ctx = canvas.getContext("2d");
+
+  function fitCanvas() {
+    const wrap = $("canvasWrap");
+    const rect = wrap.getBoundingClientRect();
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = Math.max(1, Math.round(rect.width * dpr));
+    canvas.height = Math.max(1, Math.round(rect.height * dpr));
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    draw();
+  }
+  window.addEventListener("resize", fitCanvas);
+  new ResizeObserver(fitCanvas).observe($("canvasWrap"));
+
+  // -- wire up labeled sliders --
+  function bindSlider(sliderId, valId, fmt, onChange) {
+    const s = $(sliderId), v = $(valId);
+    const update = () => {
+      v.textContent = fmt(parseFloat(s.value));
+      onChange(parseFloat(s.value));
+    };
+    s.addEventListener("input", update);
+    update();
+    return { slider: s, val: v, update };
+  }
+
+  const angleUI = bindSlider("angleSlider", "angleVal", (x) => x.toFixed(2), (x) => {
+    trueAngle = x;
+    $("angleEntry").value = x.toFixed(2);
+    refresh();
+  });
+
+  $("angleSetBtn").addEventListener("click", setAngleFromEntry);
+  $("angleEntry").addEventListener("keydown", (e) => { if (e.key === "Enter") setAngleFromEntry(); });
+  function setAngleFromEntry() {
+    const v = parseFloat($("angleEntry").value);
+    if (Number.isNaN(v)) return;
+    const lo = parseFloat(angleUI.slider.min), hi = parseFloat(angleUI.slider.max);
+    const clamped = Math.max(lo, Math.min(hi, v));
+    trueAngle = clamped;
+    angleUI.slider.value = clamped;
+    angleUI.val.textContent = clamped.toFixed(2);
+    $("angleEntry").value = clamped.toFixed(2);
+    refresh();
+  }
+
+  $("resetAngleBtn").addEventListener("click", () => {
+    trueAngle = 0;
+    angleUI.slider.value = 0;
+    angleUI.val.textContent = "0.00";
+    $("angleEntry").value = "0.0";
+    refresh();
+  });
+
+  $("animateBtn").addEventListener("click", () => {
+    animating = !animating;
+    $("animateBtn").textContent = animating ? "Stop sweep" : "Animate sweep";
+    if (animating) animStep();
+  });
+  function animStep() {
+    if (!animating) return;
+    let a = trueAngle + 2.0;
+    const hi = parseFloat(angleUI.slider.max), lo = parseFloat(angleUI.slider.min);
+    if (a > hi) a = lo;
+    trueAngle = a;
+    angleUI.slider.value = a;
+    angleUI.val.textContent = a.toFixed(2);
+    $("angleEntry").value = a.toFixed(2);
+    refresh();
+    animHandle = setTimeout(animStep, 60);
+  }
+
+  bindSlider("noiseSlider", "noiseVal", (x) => x.toFixed(2), (x) => { model.noiseStd = x / 100; refresh(); });
+  bindSlider("biasASlider", "biasAVal", (x) => x.toFixed(2), (x) => { model.biasA = x; refresh(); });
+  bindSlider("biasBSlider", "biasBVal", (x) => x.toFixed(2), (x) => { model.biasB = x; refresh(); });
+  bindSlider("tolSlider", "tolVal", (x) => x.toFixed(2), (x) => { model.tolerance = x; refresh(); });
+
+  $("liveNoiseChk").addEventListener("change", (e) => { model.liveNoise = e.target.checked; refresh(); });
+
+  $("zeroABtn").addEventListener("click", () => { model.zeroA(); refresh(); });
+  $("zeroBBtn").addEventListener("click", () => { model.zeroB(); refresh(); });
+  $("clearZeroBtn").addEventListener("click", () => { model.unzero(); refresh(); });
+
+  document.querySelectorAll('input[name="mode"]').forEach((r) => {
+    r.addEventListener("change", (e) => { model.mode = e.target.value; refresh(); });
+  });
+
+  $("applyTeethBtn").addEventListener("click", () => {
+    const t1 = parseFloat($("t1Var").value);
+    const t2 = parseFloat($("t2Var").value);
+    const T = parseFloat($("TVar").value);
+    const warn = $("teethWarning");
+    if (!(t1 > 0) || !(t2 > 0) || !(T > 0)) {
+      warn.textContent = "Tooth counts must be positive numbers.";
+      return;
+    }
+    model.t1 = t1; model.t2 = t2; model.T = T;
+    model.recomputeDerived();
+    if (!model.coprime) {
+      warn.textContent = `t1, t2 share a factor of ${model.gTooth} -- range/aliasing degraded.`;
+    } else {
+      warn.textContent = "";
+    }
+    const halfRange = Math.max(700, (model.period || 0) / 2);
+    angleUI.slider.min = -halfRange;
+    angleUI.slider.max = halfRange;
+    refresh();
+  });
+
+  // ---------- drawing ----------
+  function drawGear(cx, cy, r, teeth, pointerDeg, color, label, value) {
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0, Math.PI * 2);
+    ctx.stroke();
+
+    teeth = Math.max(teeth, 1);
+    const tickLen = r * 0.12;
+    ctx.lineWidth = 1;
+    for (let i = 0; i < teeth; i++) {
+      const th = (2 * Math.PI * i) / teeth;
+      const x1 = cx + r * Math.cos(th), y1 = cy + r * Math.sin(th);
+      const x2 = cx + (r + tickLen) * Math.cos(th), y2 = cy + (r + tickLen) * Math.sin(th);
+      ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+    }
+
+    const rad = ((pointerDeg - 90) * Math.PI) / 180;
+    const px = cx + r * 0.9 * Math.cos(rad), py = cy + r * 0.9 * Math.sin(rad);
+    ctx.strokeStyle = "#ffffff";
+    ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(px, py); ctx.stroke();
+    ctx.fillStyle = "#ffffff";
+    ctx.beginPath(); ctx.arc(cx, cy, 3, 0, Math.PI * 2); ctx.fill();
+
+    ctx.fillStyle = "#eeeeee";
+    ctx.font = "bold 12px ui-monospace, Menlo, monospace";
+    ctx.textAlign = "center";
+    ctx.fillText(`${label} (${teeth}T)`, cx, cy - r - 14);
+
+    if (value !== undefined) {
+      ctx.fillStyle = color;
+      ctx.font = "bold 12px ui-monospace, Menlo, monospace";
+      ctx.fillText(`[0-1) = ${value.toFixed(5)}`, cx, cy + r + 18);
+    }
+  }
+
+  function drawComparisonDial(cx, cy, r, trueDeg, solvedDeg) {
+    ctx.strokeStyle = "#666666";
+    ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.stroke();
+
+    ctx.lineWidth = 1;
+    for (let tickDeg = 0; tickDeg < 360; tickDeg += 30) {
+      const th = ((tickDeg - 90) * Math.PI) / 180;
+      const x1 = cx + r * Math.cos(th), y1 = cy + r * Math.sin(th);
+      const x2 = cx + (r - r * 0.08) * Math.cos(th), y2 = cy + (r - r * 0.08) * Math.sin(th);
+      ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+    }
+
+    const trueMod = mod(trueDeg, 360);
+    const radTrue = ((trueMod - 90) * Math.PI) / 180;
+    drawArrow(cx, cy, cx + r * 0.92 * Math.cos(radTrue), cy + r * 0.92 * Math.sin(radTrue), "#4fa8ff", 4);
+
+    const isNan = Number.isNaN(solvedDeg);
+    let err = 0, arrowColor = "#3ad57e";
+    if (!isNan) {
+      const solvedMod = mod(solvedDeg, 360);
+      err = mod(solvedMod - trueMod + 180, 360) - 180;
+      arrowColor = Math.abs(err) < 1 ? "#3ad57e" : (Math.abs(err) < 5 ? "#ffdd55" : "#ff5555");
+      const radSolved = ((solvedMod - 90) * Math.PI) / 180;
+      drawArrow(cx, cy, cx + r * 0.68 * Math.cos(radSolved), cy + r * 0.68 * Math.sin(radSolved), arrowColor, 4);
+    }
+
+    ctx.fillStyle = "#ffffff";
+    ctx.beginPath(); ctx.arc(cx, cy, 4, 0, Math.PI * 2); ctx.fill();
+
+    ctx.fillStyle = "#eeeeee";
+    ctx.font = "bold 12px ui-monospace, Menlo, monospace";
+    ctx.textAlign = "center";
+    ctx.fillText("True vs Solved", cx, cy - r - 14);
+
+    const legendY = cy + r + 18;
+    ctx.strokeStyle = "#4fa8ff"; ctx.lineWidth = 4;
+    ctx.beginPath(); ctx.moveTo(cx - 62, legendY); ctx.lineTo(cx - 44, legendY); ctx.stroke();
+    ctx.fillStyle = "#4fa8ff"; ctx.font = "11px ui-monospace, Menlo, monospace"; ctx.textAlign = "left";
+    ctx.fillText("true", cx - 38, legendY + 4);
+
+    if (isNan) {
+      ctx.fillStyle = "#ff5555";
+      ctx.fillText("solved: NaN", cx + 10, legendY + 4);
+    } else {
+      ctx.strokeStyle = arrowColor;
+      ctx.beginPath(); ctx.moveTo(cx + 10, legendY); ctx.lineTo(cx + 28, legendY); ctx.stroke();
+      ctx.fillStyle = arrowColor;
+      ctx.fillText(`solved (err ${err >= 0 ? "+" : ""}${err.toFixed(2)} deg)`, cx + 34, legendY + 4);
+    }
+  }
+
+  function drawArrow(x1, y1, x2, y2, color, width) {
+    const headLen = 11;
+    const angle = Math.atan2(y2 - y1, x2 - x1);
+    ctx.strokeStyle = color;
+    ctx.lineWidth = width;
+    ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.moveTo(x2, y2);
+    ctx.lineTo(x2 - headLen * Math.cos(angle - Math.PI / 7), y2 - headLen * Math.sin(angle - Math.PI / 7));
+    ctx.lineTo(x2 - headLen * Math.cos(angle + Math.PI / 7), y2 - headLen * Math.sin(angle + Math.PI / 7));
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  function draw() {
+    const rect = $("canvasWrap").getBoundingClientRect();
+    const w = rect.width, h = rect.height;
+    ctx.clearRect(0, 0, w, h);
+
+    const topCy = h * 0.28;
+    const botCy = h * 0.72;
+    const leftCx = w * 0.27;
+    const rightCx = w * 0.73;
+    const rTop = Math.min(w * 0.22, h * 0.22);
+    const rBot = rTop * 0.58;
+
+    drawGear(leftCx, topCy, rTop, Math.round(model.T), mod(trueAngle, 360), "#3a7bd5", "Turret gear (mechanical)");
+    drawComparisonDial(rightCx, topCy, rTop, trueAngle, lastSolved);
+    drawGear(leftCx, botCy, rBot, Math.round(model.t1), lastA * 360, "#d5843a", "Encoder 1", lastA);
+    drawGear(rightCx, botCy, rBot, Math.round(model.t2), lastB * 360, "#3ad57e", "Encoder 2", lastB);
+
+    ctx.fillStyle = "#cccccc";
+    ctx.font = "11px ui-monospace, Menlo, monospace";
+    ctx.textAlign = "center";
+    ctx.fillText(`true angle = ${trueAngle.toFixed(2)} deg   (all dials show mod-360 orientation)`, w / 2, h - 12);
+  }
+
+  function refresh() {
+    const m = model;
+    const [a, b] = m.sampleEncoders(trueAngle);
+    const [solved, iters] = m.solve(a, b);
+    const trueWrapped = m.wrapTrue(trueAngle);
+    lastA = a; lastB = b; lastSolved = solved;
+
+    const lines = [];
+    lines.push(`Gearing: T=${m.T}  t1=${m.t1}  t2=${m.t2}  ${m.coprime ? "(coprime)" : "(NOT COPRIME!)"}`);
+    lines.push(`m1 = ${m.m1.toFixed(3)} deg   m2 = ${m.m2.toFixed(3)} deg`);
+    if (m.period !== null) {
+      lines.push(`period = ${m.period.toFixed(2)} deg  (+/- ${(m.period / 2).toFixed(2)})`);
+    } else {
+      lines.push("period = undefined (t1,t2 not coprime)");
+    }
+    lines.push(`max safe tolerance = ${m.maxTolerance.toFixed(3)} deg   current = ${m.tolerance.toFixed(3)} deg` +
+      (m.tolerance >= m.maxTolerance ? "  [OVER CEILING]" : ""));
+    lines.push("");
+    lines.push(`encoder1 zero offset = ${m.offsetA.toFixed(5)} rot`);
+    lines.push(`encoder2 zero offset = ${m.offsetB.toFixed(5)} rot`);
+    lines.push("");
+    lines.push(`encoder1 reading  a = ${a.toFixed(5)} rot  -> r1 = ${(a * m.m1).toFixed(3).padStart(8)} deg`);
+    lines.push(`encoder2 reading  b = ${b.toFixed(5)} rot  -> r2 = ${(b * m.m2).toFixed(3).padStart(8)} deg`);
+    lines.push("");
+    lines.push(`solver mode: ${m.mode}   iterations used: ${iters}`);
+    if (Number.isNaN(solved)) {
+      lines.push("SOLVED ANGLE:  NaN  (no candidate within tolerance)");
+    } else {
+      let err = solved - trueWrapped;
+      if (m.period !== null) {
+        if (err > m.period / 2) err -= m.period;
+        else if (err < -m.period / 2) err += m.period;
+      }
+      lines.push(`SOLVED ANGLE:  ${solved.toFixed(3)} deg`);
+      lines.push(`true (wrapped): ${trueWrapped.toFixed(3)} deg   error: ${err >= 0 ? "+" : ""}${err.toFixed(3)} deg`);
+      if (m.m1 && Math.abs(Math.abs(err) - m.m1) < 1.0) {
+        lines.push("  (error ~= one encoder-1 window -> classic wrong-candidate fault)");
+      }
+    }
+
+    $("readout").textContent = lines.join("\n");
+    draw();
+  }
+
+  fitCanvas();
+  refresh();
+})();
+</script>
+</body>
+</html>
